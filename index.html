@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sen's Build a Brawl</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            max-width: 1000px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
+        .button-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105;
+        }
+        .button-danger {
+            @apply bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105;
+        }
+        .moveset-item {
+            @apply flex justify-between items-center bg-gray-100 p-3 rounded-lg mb-2;
+        }
+        .move-list-item {
+            @apply flex justify-between items-center bg-white p-3 rounded-lg mb-2 border border-gray-200;
+        }
+        .warning-message {
+            @apply text-red-600 font-semibold text-lg mt-4 animate-pulse;
+        }
+        .character-group {
+            @apply bg-indigo-50 p-5 rounded-xl shadow-inner mb-10;
+        }
+        .character-group-title {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
+        .tab-buttons {
+            @apply flex justify-center gap-4 mb-6;
+        }
+        .tab-button {
+            @apply px-6 py-3 rounded-t-lg font-semibold text-lg transition-colors duration-300;
+            background-color: #e0e0e0;
+            color: #555;
+        }
+        .tab-button.active {
+            background-color: #ffffff;
+            color: #2c3e50;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.08);
+            border-top: 3px solid #3b82f6;
+            border-left: 1px solid #e0e0e0;
+            border-right: 1px solid #e0e0e0;
+            position: relative;
+            z-index: 1;
+        }
+        .tab-content {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 0 1.5rem 1.5rem 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            position: relative;
+            top: -1.5rem;
+            z-index: 0;
+            padding-top: 4rem;
+        }
+        select {
+            @apply p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+            .section-title, .character-group-title {
+                font-size: 1.5rem;
+            }
+            .grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .tab-button {
+                padding: 0.75rem 1rem;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-6">Build a Brawl</h1>
+        <p class="text-center text-gray-600 text-lg mb-6">Build your custom moveset, with a maximum total cost of <span id="maxCostDisplay" class="font-bold text-blue-600">16</span> points.</p>
+
+        <div id="mainCharacterSelectionSection" class="bg-purple-50 p-6 rounded-xl shadow-inner mb-6">
+            <h2 class="section-title">Select Your Main Character</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <label for="mainCharacterSelect" class="text-lg font-medium text-gray-700">Choose Main Character:</label>
+                <select id="mainCharacterSelect" class="flex-grow">
+                    <option value="">-- Select Main Character --</option>
+                </select>
+            </div>
+            <p class="text-sm text-gray-600 mt-2">Price modifiers/overrides will only apply to moves belonging to <span class="font-bold text-purple-800">this selected character</span>. Moves from other characters will always use their base price.</p>
+        </div>
+
+        <div class="tab-buttons">
+            <button id="movesetTabBtn" class="tab-button active" data-tab="moveset">Your Moveset</button>
+            <button id="availableMovesTabBtn" class="tab-button" data-tab="available-moves">Available Moves</button>
+        </div>
+
+        <div id="movesetTabContent" class="tab-content bg-green-50">
+            <h2 class="section-title">Your Current Moveset</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold text-gray-700 mb-3">Total Cost: <span id="currentCostDisplay">0/16 points</span></h3>
+                <div id="currentMovesetList" class="min-h-[50px]">
+                    <p class="text-gray-500 italic" id="emptyMovesetMessage">No moves added yet.</p>
+                </div>
+                <p id="costWarning" class="hidden warning-message">WARNING: Moveset exceeds maximum cost!</p>
+            </div>
+        </div>
+
+        <div id="availableMovesTabContent" class="tab-content hidden bg-blue-50">
+            <h2 class="section-title">Available Moves (<span id="availableMovesCharacterName">All Characters</span>)</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4 mb-6">
+                <label for="characterQuickSelect" class="text-lg font-medium text-gray-700">Jump to Character:</label>
+                <select id="characterQuickSelect" class="flex-grow">
+                    <option value="">-- Select to Jump --</option>
+                </select>
+            </div>
+            <div id="allCharactersMovesList">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MAX_COST = 16;
+        document.getElementById('maxCostDisplay').textContent = MAX_COST;
+
+        const DOMAIN_MOVES = ["Malevolent Shrine", "Embodiment of Self Perfection", "Infinite Void"];
+        const COMBO_EXTENDER_MOVES = [
+            "Shutter Doors", "Cursed Strikes", "Focus Strike", "Dismantle", "Grapple",
+            "Geruda Rebound", "Clever", "Shut Up!", "Divine Pummel", "Sacrilege",
+            "Swift Kick", "Toad"
+        ];
+
+        const CHARACTER_COLORS = {
+            "Bernard": "#8B0000", // Dark maroon
+            "Choso": "#ff0000",   // Dark Red
+            "Yuji": "#FF69B4",    // Pinkish Red
+            "Gojo": "#00BCD4",    // Cyan
+            "Todo": "#191970",    // Dark blue
+            "Yuki": "#FFB6C1",    // Light pink
+            "Mahito": "#9370DB",  // Dark Lavender
+            "Mahito Second Mode": "#9370DB", // Dark Lavender
+            "Hakari": "#008000",  // Green
+            "Ko-Guy": "#228B22",  // Dark Green
+            "Heian Era Sukuna": "#FF8C00", // Orange
+            "Mahoraga": "#696969", // Dark gray
+            "Higuruma": "#FFD700", // Gold
+            "Megumi": "#000000"   // Black
+        };
+
+        // Text content from Moves.txt
+        const movesText = `Yuji
+Cursed Strikes
+Crushing Blow
+Manji Kick
+Divergent Fist
+Dismantle
+Open
+Rush
+Malevolent Shrine
+
+Gojo
+Lapse Blue
+Reversal Red
+Rapid Punches
+Twofold Kick
+Lapse Blue Max
+Reversal Red Max
+Hollow Purple
+Infinite Void
+
+Hakari
+Reserve Balls
+Shutter Doors
+Rough Energy
+Fever Breaker
+Lucky Volley
+Lucky Rushdown
+Overwhelming Luck
+Energy Surge
+
+Megumi
+Rabbit Escape
+Nue
+Toad
+Divine Dog: Totality
+Max Elephant
+Shadow Serpent
+Shadow Swarm
+
+Mahito
+Stockpile
+Soulfire
+Focus Strike
+Body Repel
+Idle Transfiguration
+Body Disfigure
+Spike Wrath
+Embodiment of Self Perfection
+
+Choso
+Piercing Blood
+Flowing Red Scale
+Supernova
+Bloodedge
+Slicing Exorcism
+Wing King
+Blood Rain
+Plasma Wave
+
+Todo
+Swift Kick
+Brute Force
+Pebble Throw
+Elbow Drop
+Idol's Debut
+Climax Jumping
+Dreams
+Brothers
+
+Higuruma
+Extended Swings
+Justice Served
+Grapple
+Twirling Strikes
+Execution
+Final Judgement
+Verdict
+Triple Sentence
+
+Yuki
+Geruda Rebound
+Rising Rage
+Mass Breaker
+Geruda Stab
+Ultimate
+
+Bernard
+Despair
+Shut Up!
+Eye Catching
+Sacrilege
+Ultimate
+
+Ko-Guy
+Clever
+Black Mucus
+Crushing Jaws
+Wing Throw
+Ultimate
+
+Mahoraga
+Divine Pummel
+Ground Pitch
+Earthquake
+Takedown
+Adaptation
+World Slash
+
+Mahito Second Mode
+Widespread Strikes
+Face Blitz
+Crushing Rushdown
+Head Splitter
+
+Heian Era Sukuna
+Strong Dismantle
+Open FURNACE
+Cleave Rush
+Kamutoke
+Chant`;
+
+        // Text content from Prices.txt
+        const pricesText = `4
+3
+5
+6
+7
+5
+6
+8
+2
+2
+5
+5
+7
+4
+6
+9
+1
+4
+4
+4
+7
+7
+4
+7
+2
+4
+6
+5
+7
+8
+6
+3
+3
+5
+2
+7
+4
+6
+9
+3
+3
+2
+4
+5
+6
+1
+7
+3
+4
+1
+3
+4
+6
+6
+8
+3
+2
+5
+3
+6
+7
+6
+7
+4
+3
+5
+4
+9
+3
+4
+5
+4
+8
+3
+1
+4
+4
+9
+6
+7
+5
+6
+3
+7
+7
+8
+6
+8
+7
+9
+12
+7
+10`;
+
+        // Text content from Specific Move Overrides.txt (now ModifierPrices.txt)
+        const modifierPricesText = `Specific Move Overrides
+
+Gojo_Wing Throw: 6
+Gojo_Crushing Jaws: 6
+Gojo_Justice Served: 5
+Gojo_Reversal Red Max: 6
+Hakari_Reserve Balls: 2
+Hakari_Shutter Doors: 5
+Mahito_Body Disfigure: 6
+Choso_Blood Rain: 6
+Choso_Wing King: 7
+Choso_Supernova: 3
+Ko-Guy_Wing Throw: 5
+Ko-Guy_Crushing Jaws: 5
+Ko-Guy_Justice Served: 4
+Type Modifiers
+
+Bernard_Domains: 2
+Yuki_Domains: 2
+Mahoraga_Combo Extenders: 3`;
+
+
+        let allMoves = [];
+        let specificMoveOverrides = {};
+        let typeModifiers = {};
+        let characterAvailableMoves = {};
+        let currentMoveset = [];
+        let selectedMainCharacter = null;
+
+        const currentMovesetList = document.getElementById('currentMovesetList');
+        const allCharactersMovesList = document.getElementById('allCharactersMovesList');
+        const currentCostDisplaySpan = document.getElementById('currentCostDisplay');
+        const costWarning = document.getElementById('costWarning');
+        const emptyMovesetMessage = document.getElementById('emptyMovesetMessage');
+
+        const movesetTabBtn = document.getElementById('movesetTabBtn');
+        const availableMovesTabBtn = document.getElementById('availableMovesTabBtn');
+        const movesetTabContent = document.getElementById('movesetTabContent');
+        const availableMovesTabContent = document.getElementById('availableMovesTabContent');
+
+        const mainCharacterSelect = document.getElementById('mainCharacterSelect');
+        const characterQuickSelect = document.getElementById('characterQuickSelect');
+        const availableMovesCharacterNameSpan = document.getElementById('availableMovesCharacterName');
+
+
+        function parseMovesAndPrices(movesTxt, pricesTxt) {
+            const movesLines = movesTxt.trim().split('\n');
+            const prices = pricesTxt.trim().split('\n').filter(line => line.trim() !== '' && line.toLowerCase() !== 'price').map(Number);
+
+            let currentCharacter = null;
+            let priceIndex = 0;
+            const parsedMoves = [];
+
+            for (const line of movesLines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine === "") {
+                    continue; // Skip empty lines
+                }
+
+                // A more robust check for character names: if it's in our CHARACTER_COLORS map
+                const isKnownCharacter = CHARACTER_COLORS.hasOwnProperty(trimmedLine);
+
+                if (isKnownCharacter) {
+                    currentCharacter = trimmedLine;
+                } else if (currentCharacter) {
+                    // This is a move
+                    if (priceIndex < prices.length) {
+                        parsedMoves.push({
+                            name: trimmedLine,
+                            character: currentCharacter,
+                            base_price: prices[priceIndex]
+                        });
+                        priceIndex++;
+                    } else {
+                        console.warn(`Not enough prices for move: "${trimmedLine}" under character "${currentCharacter}". Price index: ${priceIndex}, Total prices: ${prices.length}`);
+                    }
+                }
+            }
+            return parsedMoves;
+        }
+
+        function parseModifierPrices(modifierPricesTxt) {
+            const lines = modifierPricesTxt.trim().split('\n');
+            const parsedSpecificOverrides = {};
+            const parsedTypeModifiers = {};
+            let currentSection = '';
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine === "") {
+                    continue;
+                }
+                // Corrected: Check for section headers without '#'
+                if (trimmedLine === 'Specific Move Overrides') {
+                    currentSection = 'specific';
+                    continue;
+                } else if (trimmedLine === 'Type Modifiers') {
+                    currentSection = 'type';
+                    continue;
+                }
+
+                const parts = trimmedLine.split(':');
+                if (parts.length === 2) {
+                    const key = parts[0].trim();
+                    const value = parseInt(parts[1].trim());
+                    if (!isNaN(value)) {
+                        if (currentSection === 'specific') {
+                            parsedSpecificOverrides[key] = value;
+                        } else if (currentSection === 'type') {
+                            parsedTypeModifiers[key] = value;
+                        }
+                    }
+                }
+            }
+            return { specific: parsedSpecificOverrides, type: parsedTypeModifiers };
+        }
+
+
+        function getFinalMovePrice(move) {
+            const characterName = move.character; // Original character of the move
+            const moveName = move.name;
+            const basePrice = move.base_price;
+            let finalPrice = basePrice;
+            let priceDetails = '';
+
+            // 1. Check for specific overrides first. These take highest precedence.
+            // This override now only applies if the selectedMainCharacter matches the move's character.
+            if (selectedMainCharacter && characterName === selectedMainCharacter && specificMoveOverrides[`${characterName}_${moveName}`] !== undefined) {
+                finalPrice = specificMoveOverrides[`${characterName}_${moveName}`];
+                priceDetails = ` (Override for ${characterName})`;
+                return { finalPrice, priceDetails };
+            }
+
+            // 2. Apply type-based modifiers based on the *selected Main Character*.
+            if (selectedMainCharacter) {
+                // Rule for Domains: if selectedMainCharacter is Bernard or Yuki, ANY Domain move gets +2
+                if (DOMAIN_MOVES.includes(moveName) && (selectedMainCharacter === "Bernard" || selectedMainCharacter === "Yuki")) {
+                    const adjustment = typeModifiers[`${selectedMainCharacter}_Domains`];
+                    if (adjustment !== undefined) {
+                        finalPrice += adjustment;
+                        priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Domain via ${selectedMainCharacter})`;
+                    }
+                }
+                // Rule for Combo Extenders: if selectedMainCharacter is Mahoraga, ANY Combo Extender move gets +3
+                else if (COMBO_EXTENDER_MOVES.includes(moveName) && selectedMainCharacter === "Mahoraga") {
+                    const adjustment = typeModifiers[`${selectedMainCharacter}_Combo Extenders`];
+                    if (adjustment !== undefined) {
+                        finalPrice += adjustment;
+                        priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Combo Extender via ${selectedMainCharacter})`;
+                    }
+                }
+                // Generic type modifiers (if any, and not already covered by specific lists)
+                // This part applies only if the move's original character matches the selected main character
+                else if (characterName === selectedMainCharacter) {
+                    for (const key in typeModifiers) {
+                        const [modChar, moveType] = key.split('_');
+                        if (modChar === selectedMainCharacter && characterName === selectedMainCharacter && moveName.toLowerCase().includes(moveType.toLowerCase()) &&
+                            !DOMAIN_MOVES.includes(moveName) && // Ensure not to re-apply if already handled by specific Domain rule
+                            !COMBO_EXTENDER_MOVES.includes(moveName) // Ensure not to re-apply if already handled by specific Combo Extender rule
+                        ) {
+                            const adjustment = typeModifiers[key];
+                            finalPrice += adjustment;
+                            priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for ${moveType} via ${selectedMainCharacter})`;
+                            break;
+                        }
+                    }
+                }
+            }
+            // If no specific override or type-based modifier applies, use the base price and no extra details.
+            return { finalPrice, priceDetails };
+        }
+
+        function initializeData() {
+            try {
+                allMoves = parseMovesAndPrices(movesText, pricesText);
+                const modifiers = parseModifierPrices(modifierPricesText);
+                specificMoveOverrides = modifiers.specific;
+                typeModifiers = modifiers.type;
+                
+                const uniqueCharacters = [...new Set(allMoves.map(move => move.character))].sort();
+                uniqueCharacters.forEach(char => {
+                    characterAvailableMoves[char] = allMoves.filter(move => move.character === char);
+                });
+
+                uniqueCharacters.forEach(char => {
+                    const option = document.createElement('option');
+                    option.value = char;
+                    option.textContent = char;
+                    mainCharacterSelect.appendChild(option.cloneNode(true));
+                    characterQuickSelect.appendChild(option);
+                });
+
+            } catch (e) {
+                console.error("Error initializing data:", e);
+                alert("Error loading character data. Please check your Moves.txt, Prices.txt, and ModifierPrices.txt files.");
+            }
+        }
+
+        function renderMoveset() {
+            currentMovesetList.innerHTML = '';
+            let totalCost = 0;
+            let comboExtenderCount = 0;
+
+            if (currentMoveset.length === 0) {
+                emptyMovesetMessage.classList.remove('hidden');
+            } else {
+                emptyMovesetMessage.classList.add('hidden');
+                currentMoveset.forEach((item, index) => {
+                    totalCost += item.final_price;
+                    if (COMBO_EXTENDER_MOVES.includes(item.move.name)) {
+                        comboExtenderCount++;
+                    }
+                    const moveElement = document.createElement('div');
+                    moveElement.className = 'moveset-item';
+                    moveElement.innerHTML = `
+                        <span class="text-gray-800 font-medium">${item.move.name} (Character: ${item.move.character})</span>
+                        <span class="text-gray-600">${item.final_price} points${item.price_details}</span>
+                        <button class="button-danger text-sm px-3 py-1" data-index="${index}">Remove</button>
+                    `;
+                    currentMovesetList.appendChild(moveElement);
+                });
+            }
+
+            let displayTotalCost = totalCost;
+            let penaltyMessageText = '';
+            if (comboExtenderCount > 2) {
+                const penalty = (comboExtenderCount - 2) * 2;
+                displayTotalCost += penalty;
+                penaltyMessageText = ` <span class="text-red-500 text-sm">(+${penalty} for ${comboExtenderCount} Combo Extenders)</span>`;
+            }
+            
+            currentCostDisplaySpan.innerHTML = `${displayTotalCost}/${MAX_COST} points${penaltyMessageText}`;
+
+
+            if (displayTotalCost > MAX_COST) {
+                costWarning.classList.remove('hidden');
+            } else {
+                costWarning.classList.add('hidden');
+            }
+        }
+
+        function renderAllAvailableMoves() {
+            allCharactersMovesList.innerHTML = '';
+            availableMovesCharacterNameSpan.textContent = "All Characters";
+
+            const uniqueCharacters = Object.keys(characterAvailableMoves).sort();
+
+            uniqueCharacters.forEach(charName => {
+                const charGroupDiv = document.createElement('div');
+                charGroupDiv.className = 'character-group';
+                charGroupDiv.id = `character-group-${charName.replace(/\s/g, '-')}`;
+                
+                const characterColor = CHARACTER_COLORS[charName] || '#2c3e50';
+                charGroupDiv.innerHTML = `<h3 class="character-group-title" style="color: ${characterColor};">${charName}</h3>`;
+                
+                const movesContainer = document.createElement('div');
+                movesContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+
+                const movesForChar = characterAvailableMoves[charName] || [];
+
+                if (movesForChar.length === 0) {
+                    movesContainer.innerHTML = '<p class="text-gray-500 italic">No moves found for this character.</p>';
+                } else {
+                    movesForChar.forEach(move => {
+                        const { finalPrice, priceDetails } = getFinalMovePrice(move);
+                        const moveElement = document.createElement('div');
+                        moveElement.className = 'move-list-item';
+                        moveElement.innerHTML = `
+                            <div class="flex-grow">
+                                <span class="font-medium text-gray-800">${move.name}</span>
+                                <span class="text-sm text-gray-600 block"> (Base: ${move.base_price}, Final: ${finalPrice} points${priceDetails})</span>
+                            </div>
+                            <button class="button-primary text-sm px-3 py-1 ml-4" 
+                                data-char-name="${move.character}" 
+                                data-move-name="${move.name}" 
+                                data-base-price="${move.base_price}" 
+                                data-final-price="${finalPrice}"
+                                data-price-details="${priceDetails}">Add</button>
+                        `;
+                        movesContainer.appendChild(moveElement);
+                    });
+                }
+                charGroupDiv.appendChild(movesContainer);
+                allCharactersMovesList.appendChild(charGroupDiv);
+            });
+        }
+
+        function showTab(tabId) {
+            movesetTabContent.classList.add('hidden');
+            availableMovesTabContent.classList.add('hidden');
+
+            movesetTabBtn.classList.remove('active');
+            availableMovesTabBtn.classList.remove('active');
+
+            if (tabId === 'moveset') {
+                movesetTabContent.classList.remove('hidden');
+                movesetTabBtn.classList.add('active');
+            } else if (tabId === 'available-moves') {
+                availableMovesTabContent.classList.remove('hidden');
+                availableMovesTabBtn.classList.add('active');
+            }
+        }
+
+        movesetTabBtn.addEventListener('click', () => showTab('moveset'));
+        availableMovesTabBtn.addEventListener('click', () => showTab('available-moves'));
+
+        mainCharacterSelect.addEventListener('change', (event) => {
+            selectedMainCharacter = event.target.value;
+            renderAllAvailableMoves();
+            renderMoveset();
+        });
+
+        characterQuickSelect.addEventListener('change', (event) => {
+            const selectedChar = event.target.value;
+            if (selectedChar) {
+                const targetElement = document.getElementById(`character-group-${selectedChar.replace(/\s/g, '-')}`);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                event.target.value = "";
+            }
+        });
+
+
+        allCharactersMovesList.addEventListener('click', (event) => {
+            if (event.target.tagName === 'BUTTON' && event.target.textContent === 'Add') {
+                const btn = event.target;
+                const charName = btn.dataset.charName;
+                const moveName = btn.dataset.moveName;
+                const basePrice = parseInt(btn.dataset.basePrice);
+                
+                const { finalPrice, priceDetails } = getFinalMovePrice({ name: moveName, character: charName, base_price: basePrice });
+
+                const moveToAdd = { name: moveName, character: charName, base_price: basePrice };
+                
+                const currentTotalCost = currentMoveset.reduce((sum, item) => sum + item.final_price, 0);
+
+                if (currentTotalCost + finalPrice <= MAX_COST) {
+                    currentMoveset.push({ 
+                        move: moveToAdd, 
+                        final_price: finalPrice, 
+                        price_details: priceDetails 
+                    });
+                    renderMoveset();
+                    showTab('moveset');
+                } else {
+                    alert(`Adding "${moveName}" from ${charName} would exceed the maximum cost of ${MAX_COST} points!`);
+                }
+            }
+        });
+
+        currentMovesetList.addEventListener('click', (event) => {
+            if (event.target.tagName === 'BUTTON' && event.target.textContent === 'Remove') {
+                const indexToRemove = parseInt(event.target.dataset.index);
+                if (!isNaN(indexToRemove) && indexToRemove < currentMoveset.length) {
+                    currentMoveset.splice(indexToRemove, 1);
+                    renderMoveset();
+                }
+            }
+        });
+
+        initializeData();
+        renderAllAvailableMoves();
+        renderMoveset();
+        showTab('moveset');
+    </script>
+</body>
+</html>
