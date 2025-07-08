@@ -92,6 +92,15 @@
         select {
             @apply p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
         }
+        .binding-vow-item {
+            @apply bg-gray-100 p-4 rounded-lg mb-4 border border-gray-200;
+        }
+        .binding-vow-name {
+            @apply text-xl font-semibold text-gray-800 mb-2;
+        }
+        .binding-vow-description {
+            @apply text-gray-700 text-base;
+        }
 
         @media (max-width: 768px) {
             .container {
@@ -126,20 +135,22 @@
             <p class="text-sm text-gray-600 mt-2">Price modifiers/overrides will only apply to moves belonging to <span class="font-bold text-purple-800">this selected character</span>. Moves from other characters will always use their base price.</p>
         </div>
 
+        <div class="mb-6 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+            <h3 class="text-xl font-semibold text-gray-700 mb-2 text-center">Current Moveset Cost: <span id="currentCostDisplay">0/16 points</span></h3>
+            <p id="costWarning" class="hidden warning-message text-center">WARNING: Moveset exceeds maximum cost!</p>
+        </div>
+        
         <div class="tab-buttons">
             <button id="movesetTabBtn" class="tab-button active" data-tab="moveset">Your Moveset</button>
             <button id="availableMovesTabBtn" class="tab-button" data-tab="available-moves">Available Moves</button>
+            <button id="bindingVowsTabBtn" class="tab-button" data-tab="binding-vows">Binding Vows</button>
         </div>
 
         <div id="movesetTabContent" class="tab-content bg-green-50">
             <h2 class="section-title">Your Current Moveset</h2>
             
-            <div class="mb-6">
-                <h3 class="text-xl font-semibold text-gray-700 mb-3">Total Cost: <span id="currentCostDisplay">0/16 points</span></h3>
-                <div id="currentMovesetList" class="min-h-[50px]">
-                    <p class="text-gray-500 italic" id="emptyMovesetMessage">No moves added yet.</p>
-                </div>
-                <p id="costWarning" class="hidden warning-message">WARNING: Moveset exceeds maximum cost!</p>
+            <div id="currentMovesetList" class="min-h-[50px]">
+                <p class="text-gray-500 italic" id="emptyMovesetMessage">No moves added yet.</p>
             </div>
         </div>
 
@@ -154,37 +165,43 @@
             <div id="allCharactersMovesList">
             </div>
         </div>
+
+        <div id="bindingVowsTabContent" class="tab-content hidden bg-yellow-50">
+            <h2 class="section-title">Binding Vows</h2>
+            <div id="bindingVowsList">
+                </div>
+        </div>
     </div>
 
     <script>
         const MAX_COST = 16;
+        const BASE_HP = 100;
         document.getElementById('maxCostDisplay').textContent = MAX_COST;
 
         const DOMAIN_MOVES = ["Malevolent Shrine", "Embodiment of Self Perfection", "Infinite Void"];
         const COMBO_EXTENDER_MOVES = [
             "Shutter Doors", "Cursed Strikes", "Focus Strike", "Dismantle", "Grapple",
             "Geruda Rebound", "Clever", "Shut Up!", "Divine Pummel", "Sacrilege",
-            "Swift Kick", "Toad"
+            "Swift Kick", "Toad", "Despair"
         ];
 
         const CHARACTER_COLORS = {
-            "Bernard": "#8B0000", // Dark maroon
-            "Choso": "#ff0000",   // Dark Red
-            "Yuji": "#FF69B4",    // Pinkish Red
-            "Gojo": "#00BCD4",    // Cyan
-            "Todo": "#191970",    // Dark blue
-            "Yuki": "#FFB6C1",    // Light pink
-            "Mahito": "#9370DB",  // Dark Lavender
-            "Mahito Second Mode": "#9370DB", // Dark Lavender
-            "Hakari": "#008000",  // Green
-            "Ko-Guy": "#228B22",  // Dark Green
-            "Heian Era Sukuna": "#FF8C00", // Orange
-            "Mahoraga": "#696969", // Dark gray
-            "Higuruma": "#FFD700", // Gold
-            "Megumi": "#000000"   // Black
+            "Bernard": "#8B0000",
+            "Choso": "#ff0000",
+            "Yuji": "#FF69B4",
+            "Gojo": "#00BCD4",
+            "Todo": "#191970",
+            "Yuki": "#FFB6C1",
+            "Mahito": "#9370DB",
+            "Mahito Second Mode": "#9370DB",
+            "Hakari": "#008000",
+            "Ko-Guy": "#228B22",
+            "Heian Era Sukuna": "#FF8C00",
+            "Mahoraga": "#696969",
+            "Higuruma": "#FFD700",
+            "Megumi": "#000000"
         };
 
-        // Text content from Moves.txt
         const movesText = `Yuji
 Cursed Strikes
 Crushing Blow
@@ -306,7 +323,6 @@ Cleave Rush
 Kamutoke
 Chant`;
 
-        // Text content from Prices.txt
         const pricesText = `4
 3
 5
@@ -401,7 +417,6 @@ Chant`;
 7
 10`;
 
-        // Text content from Specific Move Overrides.txt (now ModifierPrices.txt)
         const modifierPricesText = `Specific Move Overrides
 
 Gojo_Wing Throw: 6
@@ -415,13 +430,88 @@ Choso_Blood Rain: 6
 Choso_Wing King: 7
 Choso_Supernova: 3
 Ko-Guy_Wing Throw: 5
-Ko-Guy_Crushing Jaws: 5
-Ko-Guy_Justice Served: 4
+Ko_Guy_Crushing Jaws: 5
+Ko_Guy_Justice Served: 4
 Type Modifiers
 
 Bernard_Domains: 2
 Yuki_Domains: 2
 Mahoraga_Combo Extenders: 3`;
+
+        const bindingVows = [
+            {
+                id: "heian-sukuna-restriction",
+                name: "Heian Era Sukuna Restriction",
+                description: "Heian Era Sukuna does not receive any price reductions from any binding vows, only the downside.",
+                type: "passive"
+            },
+            {
+                id: "slow",
+                name: "Slow",
+                description: "Makes the user 20% slower. Reduces price by 2 points, excluding domains and Heian Era Sukuna moves.",
+                totalCostEffect: 0,
+                movePriceEffect: -2,
+                appliesToMove: (moveName) => !DOMAIN_MOVES.includes(moveName)
+            },
+            {
+                id: "tiny",
+                name: "Tiny",
+                description: "Makes the user small, adds 2 points to the total cost, reduces price on Pebble Throw, Black Mucus, and Soul Fire by 1.",
+                totalCostEffect: 2,
+                movePriceEffect: { "Pebble Throw": -1, "Black Mucus": -1, "Soulfire": -1 },
+                appliesToMove: (moveName) => ["Pebble Throw", "Black Mucus", "Soulfire"].includes(moveName)
+            },
+            {
+                id: "tank",
+                name: "Tank",
+                description: "Increases the user's HP by 25. Costs 4 points.",
+                totalCostEffect: 4,
+                hpEffect: 25
+            },
+            {
+                id: "no-stun",
+                name: "No Stun",
+                description: "Gives the user no stun. Costs 10 points.",
+                totalCostEffect: 10
+            },
+            {
+                id: "big",
+                name: "Big",
+                description: "Makes the user big. Reduces price on all moves by 2.",
+                totalCostEffect: 0,
+                movePriceEffect: -2,
+                appliesToMove: (moveName) => true
+            },
+            {
+                id: "flash",
+                name: "Flash",
+                description: "Makes the user fast. Costs 6 points.",
+                totalCostEffect: 6
+            },
+            {
+                id: "cursed",
+                name: "Cursed",
+                description: "Reduces prices on all moves to 50% their original price, rounded down (excluding Heian Era Sukuna). However... Comes with some drawbacks...",
+                totalCostEffect: 0,
+                movePriceEffect: 0.5,
+                appliesToMove: (moveName) => true
+            },
+            {
+                id: "tub-of-lard",
+                name: "Tub of Lard",
+                description: "55 HP. Costs 10 points. Does not apply to Heian Era Sukuna.",
+                totalCostEffect: 10,
+                hpSet: 55,
+                excludeHeianSukuna: true
+            },
+            {
+                id: "bankrupt",
+                name: "Bankrupt",
+                description: "Allows the user to go past the points cap; however, lowers their HP for every 2 points they go in debt by 10. Starts the moment the user goes over the point limit.",
+                totalCostEffect: 0,
+                type: "debt"
+            }
+        ];
 
 
         let allMoves = [];
@@ -430,17 +520,21 @@ Mahoraga_Combo Extenders: 3`;
         let characterAvailableMoves = {};
         let currentMoveset = [];
         let selectedMainCharacter = null;
+        let selectedBindingVows = [];
 
         const currentMovesetList = document.getElementById('currentMovesetList');
         const allCharactersMovesList = document.getElementById('allCharactersMovesList');
+        const bindingVowsList = document.getElementById('bindingVowsList');
         const currentCostDisplaySpan = document.getElementById('currentCostDisplay');
         const costWarning = document.getElementById('costWarning');
         const emptyMovesetMessage = document.getElementById('emptyMovesetMessage');
 
         const movesetTabBtn = document.getElementById('movesetTabBtn');
         const availableMovesTabBtn = document.getElementById('availableMovesTabBtn');
+        const bindingVowsTabBtn = document.getElementById('bindingVowsTabBtn');
         const movesetTabContent = document.getElementById('movesetTabContent');
         const availableMovesTabContent = document.getElementById('availableMovesTabContent');
+        const bindingVowsTabContent = document.getElementById('bindingVowsTabContent');
 
         const mainCharacterSelect = document.getElementById('mainCharacterSelect');
         const characterQuickSelect = document.getElementById('characterQuickSelect');
@@ -458,16 +552,14 @@ Mahoraga_Combo Extenders: 3`;
             for (const line of movesLines) {
                 const trimmedLine = line.trim();
                 if (trimmedLine === "") {
-                    continue; // Skip empty lines
+                    continue;
                 }
 
-                // A more robust check for character names: if it's in our CHARACTER_COLORS map
                 const isKnownCharacter = CHARACTER_COLORS.hasOwnProperty(trimmedLine);
 
                 if (isKnownCharacter) {
                     currentCharacter = trimmedLine;
                 } else if (currentCharacter) {
-                    // This is a move
                     if (priceIndex < prices.length) {
                         parsedMoves.push({
                             name: trimmedLine,
@@ -494,7 +586,6 @@ Mahoraga_Combo Extenders: 3`;
                 if (trimmedLine === "") {
                     continue;
                 }
-                // Corrected: Check for section headers without '#'
                 if (trimmedLine === 'Specific Move Overrides') {
                     currentSection = 'specific';
                     continue;
@@ -521,56 +612,84 @@ Mahoraga_Combo Extenders: 3`;
 
 
         function getFinalMovePrice(move) {
-            const characterName = move.character; // Original character of the move
+            const characterName = move.character;
             const moveName = move.name;
-            const basePrice = move.base_price;
-            let finalPrice = basePrice;
+            let finalPrice = move.base_price;
             let priceDetails = '';
+            const isHeianSukuna = selectedMainCharacter === "Heian Era Sukuna";
 
-            // 1. Check for specific overrides first. These take highest precedence.
-            // This override now only applies if the selectedMainCharacter matches the move's character.
+            let currentCalculatedPrice = move.base_price;
+
             if (selectedMainCharacter && characterName === selectedMainCharacter && specificMoveOverrides[`${characterName}_${moveName}`] !== undefined) {
-                finalPrice = specificMoveOverrides[`${characterName}_${moveName}`];
-                priceDetails = ` (Override for ${characterName})`;
-                return { finalPrice, priceDetails };
+                const overrideValue = specificMoveOverrides[`${characterName}_${moveName}`];
+                if (isHeianSukuna) {
+                    if (overrideValue >= move.base_price) {
+                        currentCalculatedPrice = overrideValue;
+                        priceDetails = ` (Override for ${characterName})`;
+                    }
+                } else {
+                    currentCalculatedPrice = overrideValue;
+                    priceDetails = ` (Override for ${characterName})`;
+                }
             }
 
-            // 2. Apply type-based modifiers based on the *selected Main Character*.
-            if (selectedMainCharacter) {
-                // Rule for Domains: if selectedMainCharacter is Bernard or Yuki, ANY Domain move gets +2
+            if (selectedMainCharacter && characterName === selectedMainCharacter) {
                 if (DOMAIN_MOVES.includes(moveName) && (selectedMainCharacter === "Bernard" || selectedMainCharacter === "Yuki")) {
                     const adjustment = typeModifiers[`${selectedMainCharacter}_Domains`];
                     if (adjustment !== undefined) {
-                        finalPrice += adjustment;
-                        priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Domain via ${selectedMainCharacter})`;
+                        currentCalculatedPrice += adjustment;
+                        priceDetails += ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Domain via ${selectedMainCharacter})`;
                     }
-                }
-                // Rule for Combo Extenders: if selectedMainCharacter is Mahoraga, ANY Combo Extender move gets +3
-                else if (COMBO_EXTENDER_MOVES.includes(moveName) && selectedMainCharacter === "Mahoraga") {
+                } else if (COMBO_EXTENDER_MOVES.includes(moveName) && selectedMainCharacter === "Mahoraga") {
                     const adjustment = typeModifiers[`${selectedMainCharacter}_Combo Extenders`];
                     if (adjustment !== undefined) {
-                        finalPrice += adjustment;
-                        priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Combo Extender via ${selectedMainCharacter})`;
-                    }
-                }
-                // Generic type modifiers (if any, and not already covered by specific lists)
-                // This part applies only if the move's original character matches the selected main character
-                else if (characterName === selectedMainCharacter) {
-                    for (const key in typeModifiers) {
-                        const [modChar, moveType] = key.split('_');
-                        if (modChar === selectedMainCharacter && characterName === selectedMainCharacter && moveName.toLowerCase().includes(moveType.toLowerCase()) &&
-                            !DOMAIN_MOVES.includes(moveName) && // Ensure not to re-apply if already handled by specific Domain rule
-                            !COMBO_EXTENDER_MOVES.includes(moveName) // Ensure not to re-apply if already handled by specific Combo Extender rule
-                        ) {
-                            const adjustment = typeModifiers[key];
-                            finalPrice += adjustment;
-                            priceDetails = ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for ${moveType} via ${selectedMainCharacter})`;
-                            break;
-                        }
+                        currentCalculatedPrice += adjustment;
+                        priceDetails += ` (${adjustment > 0 ? '+' : ''}${adjustment} cost for Combo Extender via ${selectedMainCharacter})`;
                     }
                 }
             }
-            // If no specific override or type-based modifier applies, use the base price and no extra details.
+
+            let priceBeforeCursed = currentCalculatedPrice;
+
+            selectedBindingVows.forEach(vowId => {
+                const vow = bindingVows.find(v => v.id === vowId);
+                if (!vow || vow.id === "cursed") return;
+
+                let effectivePriceChange = 0;
+                let currentVowPriceDetails = "";
+
+                if (vow.id === "slow" && vow.appliesToMove(moveName)) {
+                    effectivePriceChange = vow.movePriceEffect;
+                    currentVowPriceDetails = ` (Slow: ${vow.movePriceEffect})`;
+                }
+                else if (vow.id === "tiny" && vow.appliesToMove(moveName)) {
+                    effectivePriceChange = vow.movePriceEffect[moveName];
+                    currentVowPriceDetails = ` (Tiny: ${vow.movePriceEffect[moveName]})`;
+                }
+                else if (vow.id === "big" && vow.appliesToMove(moveName)) {
+                    effectivePriceChange = vow.movePriceEffect;
+                    currentVowPriceDetails = ` (Big: ${vow.movePriceEffect})`;
+                }
+
+                if (effectivePriceChange < 0 && isHeianSukuna) {
+                } else {
+                    currentCalculatedPrice += effectivePriceChange;
+                    if (effectivePriceChange !== 0) {
+                        priceDetails += currentVowPriceDetails;
+                    }
+                }
+            });
+
+            if (selectedBindingVows.includes("cursed") && !isHeianSukuna) {
+                const cursedVow = bindingVows.find(v => v.id === "cursed");
+                if (cursedVow && cursedVow.appliesToMove(moveName)) {
+                    currentCalculatedPrice = Math.floor(currentCalculatedPrice * cursedVow.movePriceEffect);
+                    priceDetails += ` (Cursed: 50% off)`;
+                }
+            }
+
+            finalPrice = Math.max(1, currentCalculatedPrice);
+
             return { finalPrice, priceDetails };
         }
 
@@ -604,12 +723,18 @@ Mahoraga_Combo Extenders: 3`;
             currentMovesetList.innerHTML = '';
             let totalCost = 0;
             let comboExtenderCount = 0;
+            let currentHP = BASE_HP;
+            const isHeianSukuna = selectedMainCharacter === "Heian Era Sukuna";
 
             if (currentMoveset.length === 0) {
                 emptyMovesetMessage.classList.remove('hidden');
             } else {
                 emptyMovesetMessage.classList.add('hidden');
                 currentMoveset.forEach((item, index) => {
+                    const { finalPrice, priceDetails } = getFinalMovePrice(item.move);
+                    item.final_price = finalPrice;
+                    item.price_details = priceDetails;
+
                     totalCost += item.final_price;
                     if (COMBO_EXTENDER_MOVES.includes(item.move.name)) {
                         comboExtenderCount++;
@@ -625,22 +750,44 @@ Mahoraga_Combo Extenders: 3`;
                 });
             }
 
-            let displayTotalCost = totalCost;
             let penaltyMessageText = '';
-            if (comboExtenderCount > 2) {
-                const penalty = (comboExtenderCount - 2) * 2;
-                displayTotalCost += penalty;
+            if (comboExtenderCount >= 2) {
+                const penalty = (comboExtenderCount - 1) * 2;
+                totalCost += penalty;
                 penaltyMessageText = ` <span class="text-red-500 text-sm">(+${penalty} for ${comboExtenderCount} Combo Extenders)</span>`;
             }
             
-            currentCostDisplaySpan.innerHTML = `${displayTotalCost}/${MAX_COST} points${penaltyMessageText}`;
+            selectedBindingVows.forEach(vowId => {
+                const vow = bindingVows.find(v => v.id === vowId);
+                if (!vow) return;
 
+                totalCost += (vow.totalCostEffect || 0);
 
-            if (displayTotalCost > MAX_COST) {
+                if (vow.hpEffect !== undefined && !(isHeianSukuna && vow.hpEffect > 0)) {
+                    currentHP += vow.hpEffect;
+                }
+                if (vow.hpSet !== undefined && !(isHeianSukuna && vow.excludeHeianSukuna)) {
+                    currentHP = vow.hpSet;
+                }
+            });
+
+            if (selectedBindingVows.includes("bankrupt") && totalCost > MAX_COST) {
+                const debt = totalCost - MAX_COST;
+                const hpPenalty = Math.floor(debt / 2) * 10;
+                currentHP -= hpPenalty;
+            }
+
+            currentCostDisplaySpan.innerHTML = `${totalCost}/${MAX_COST} points${penaltyMessageText}`;
+
+            const allowsOverCapForThisCharacter = selectedBindingVows.includes("bankrupt") && !isHeianSukuna;
+
+            if (totalCost > MAX_COST && !allowsOverCapForThisCharacter) {
                 costWarning.classList.remove('hidden');
             } else {
                 costWarning.classList.add('hidden');
             }
+
+            renderAllAvailableMoves();
         }
 
         function renderAllAvailableMoves() {
@@ -689,12 +836,49 @@ Mahoraga_Combo Extenders: 3`;
             });
         }
 
+        function renderBindingVows() {
+            bindingVowsList.innerHTML = '';
+            bindingVows.forEach(vow => {
+                if (vow.type === "passive") {
+                    return;
+                }
+
+                const vowElement = document.createElement('div');
+                vowElement.className = 'binding-vow-item';
+                vowElement.innerHTML = `
+                    <div class="flex items-center mb-2">
+                        <input type="checkbox" id="vow-${vow.id}" class="mr-2 binding-vow-checkbox" data-vow-id="${vow.id}" ${selectedBindingVows.includes(vow.id) ? 'checked' : ''}>
+                        <label for="vow-${vow.id}" class="binding-vow-name cursor-pointer">${vow.name}</label>
+                    </div>
+                    <p class="binding-vow-description">${vow.description}</p>
+                `;
+                bindingVowsList.appendChild(vowElement);
+            });
+
+            document.querySelectorAll('.binding-vow-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (event) => {
+                    const vowId = event.target.dataset.vowId;
+                    if (event.target.checked) {
+                        if (!selectedBindingVows.includes(vowId)) {
+                            selectedBindingVows.push(vowId);
+                        }
+                    } else {
+                        selectedBindingVows = selectedBindingVows.filter(id => id !== vowId);
+                    }
+                    renderMoveset();
+                    renderAllAvailableMoves();
+                });
+            });
+        }
+
         function showTab(tabId) {
             movesetTabContent.classList.add('hidden');
             availableMovesTabContent.classList.add('hidden');
+            bindingVowsTabContent.classList.add('hidden');
 
             movesetTabBtn.classList.remove('active');
             availableMovesTabBtn.classList.remove('active');
+            bindingVowsTabBtn.classList.remove('active');
 
             if (tabId === 'moveset') {
                 movesetTabContent.classList.remove('hidden');
@@ -702,11 +886,15 @@ Mahoraga_Combo Extenders: 3`;
             } else if (tabId === 'available-moves') {
                 availableMovesTabContent.classList.remove('hidden');
                 availableMovesTabBtn.classList.add('active');
+            } else if (tabId === 'binding-vows') {
+                bindingVowsTabContent.classList.remove('hidden');
+                bindingVowsTabBtn.classList.add('active');
             }
         }
 
         movesetTabBtn.addEventListener('click', () => showTab('moveset'));
         availableMovesTabBtn.addEventListener('click', () => showTab('available-moves'));
+        bindingVowsTabBtn.addEventListener('click', () => showTab('binding-vows'));
 
         mainCharacterSelect.addEventListener('change', (event) => {
             selectedMainCharacter = event.target.value;
@@ -737,18 +925,26 @@ Mahoraga_Combo Extenders: 3`;
 
                 const moveToAdd = { name: moveName, character: charName, base_price: basePrice };
                 
-                const currentTotalCost = currentMoveset.reduce((sum, item) => sum + item.final_price, 0);
+                let currentTotalCostWithoutNewMove = currentMoveset.reduce((sum, item) => sum + item.final_price, 0);
+                selectedBindingVows.forEach(vowId => {
+                    const vow = bindingVows.find(v => v.id === vowId);
+                    if (vow) {
+                        currentTotalCostWithoutNewMove += (vow.totalCostEffect || 0);
+                    }
+                });
 
-                if (currentTotalCost + finalPrice <= MAX_COST) {
+                const isHeianSukuna = selectedMainCharacter === "Heian Era Sukuna";
+                const allowsOverCap = selectedBindingVows.includes("bankrupt") && !isHeianSukuna;
+
+                if (!allowsOverCap && (currentTotalCostWithoutNewMove + finalPrice > MAX_COST)) {
+                    alert(`Adding "${moveName}" from ${charName} would exceed the maximum cost of ${MAX_COST} points!`);
+                } else {
                     currentMoveset.push({ 
                         move: moveToAdd, 
-                        final_price: finalPrice, 
+                        final_price: finalPrice,
                         price_details: priceDetails 
                     });
                     renderMoveset();
-                    showTab('moveset');
-                } else {
-                    alert(`Adding "${moveName}" from ${charName} would exceed the maximum cost of ${MAX_COST} points!`);
                 }
             }
         });
@@ -765,6 +961,7 @@ Mahoraga_Combo Extenders: 3`;
 
         initializeData();
         renderAllAvailableMoves();
+        renderBindingVows();
         renderMoveset();
         showTab('moveset');
     </script>
